@@ -35,8 +35,10 @@ final class QuickSearch: NSObject, NSWindowDelegate {
             p.backgroundColor = .clear
             [.closeButton, .miniaturizeButton, .zoomButton].forEach { p.standardWindowButton($0)?.isHidden = true }
             p.delegate = self
-            p.contentView = NSHostingView(rootView: QuickSearchView(model: model)
+            let host = NSHostingView(rootView: QuickSearchView(model: model)
                 .environmentObject(Library.shared).environmentObject(AppState.shared).environmentObject(TextIndex.shared))
+            host.sizingOptions = []
+            p.contentView = host
             panel = p
         }
         guard let panel else { return }

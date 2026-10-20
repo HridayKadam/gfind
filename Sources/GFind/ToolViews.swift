@@ -421,6 +421,16 @@ struct InspectorView: View {
 }
 
 struct SettingsView: View {
+    var body: some View {
+        TabView {
+            GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }
+            NotchSettings().tabItem { Label("Notch", systemImage: "rectangle.topthird.inset.filled") }
+        }
+        .frame(width: 560, height: 600)
+    }
+}
+
+struct GeneralSettings: View {
     @EnvironmentObject var app: AppState
     @EnvironmentObject var library: Library
     @EnvironmentObject var text: TextIndex
@@ -458,6 +468,66 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 560)
+    }
+}
+
+struct NotchSettings: View {
+    @AppStorage("notchEnabled") private var enabled = true
+    @AppStorage("notchHoverOpen") private var hoverOpen = true
+    @AppStorage("notchHoverDelay") private var delay = 0.15
+    @AppStorage("notchHideFullscreen") private var hideFullscreen = true
+    @AppStorage("notchDisplay") private var display = "auto"
+    @AppStorage("notchTheme") private var theme: NotchTheme = .playful
+    @AppStorage("liveActivity") private var live: LiveActivity = .clock
+    @ObservedObject private var revenue = RevenueStore.shared
+    @State private var stripeKey = ""
+    @State private var toolsVersion = 0
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Show the notch panel", isOn: $enabled).onChange(of: enabled) { Notch.shared.start() }
+                Toggle("Open on hover", isOn: $hoverOpen)
+                if hoverOpen {
+                    LabeledContent("Hover delay") {
+                        Slider(value: $delay, in: 0...1, step: 0.05).frame(width: 200)
+                        Text("\(Int(delay * 1000)) ms").monospacedDigit().frame(width: 60)
+                    }
+                }
+                Toggle("Hide while an app is fullscreen", isOn: $hideFullscreen)
+                Picker("Display", selection: $display) {
+                    Text("Automatic").tag("auto")
+                    ForEach(Notch.displayNames, id: \.self) { Text($0).tag($0) }
+                }
+                .onChange(of: display) { Notch.shared.layout() }
+                Text(Notch.shared.hasRealNotch ? "Using your Mac's notch." : "No notch on this display, so GFind draws one at the top of the screen.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Look") {
+                Picker("Theme", selection: $theme) { ForEach(NotchTheme.allCases) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                Picker("On the closed notch", selection: $live) { ForEach(LiveActivity.allCases) { Text($0.title).tag($0) } }
+                    .onChange(of: live) { Notch.shared.layout() }
+                Text("Running timers and new sales always show on the closed notch.").font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Tools") {
+                ForEach(NotchTool.allCases) { t in
+                    Toggle(isOn: Binding(get: { _ = toolsVersion; return t.isEnabled },
+                                         set: { UserDefaults.standard.set($0, forKey: "tool.\(t.rawValue)"); toolsVersion += 1 })) {
+                        Label(t.title, systemImage: t.symbol)
+                    }
+                }
+            }
+            Section("Revenue") {
+                if revenue.hasKey {
+                    LabeledContent("Stripe", value: "Connected")
+                    Button("Disconnect Stripe") { revenue.setKey("") }
+                } else {
+                    SecureField("Stripe restricted key (read-only)", text: $stripeKey)
+                    Button("Connect") { revenue.setKey(stripeKey); stripeKey = "" }.disabled(stripeKey.isEmpty)
+                }
+                Text("Keys are stored in your login keychain and only sent to Stripe.").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }

@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let saved = QuickSearchShortcut(rawValue: UserDefaults.standard.string(forKey: "quickSearchShortcut") ?? "")
             HotKey.shared.register(saved ?? .shiftCmdSpace)
             Library.shared.refresh()
+            Notch.shared.start()
         }
     }
 
@@ -63,6 +64,7 @@ struct GFindCommands: Commands {
         CommandGroup(after: .newItem) {
             Button("Quick Search") { QuickSearch.shared.show() }
             Button("Rescan Library") { library.refresh() }.keyboardShortcut("r")
+            Button("Open Notch") { Notch.shared.toggle() }.keyboardShortcut("n", modifiers: [.command, .option])
         }
         CommandGroup(after: .pasteboard) {
             Divider()

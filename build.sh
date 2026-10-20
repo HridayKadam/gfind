@@ -38,6 +38,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSDesktopFolderUsageDescription</key><string>GFind shows and searches the files on your Desktop. Nothing is uploaded.</string>
     <key>NSDocumentsFolderUsageDescription</key><string>GFind shows and searches your Documents. Nothing is uploaded.</string>
     <key>NSDownloadsFolderUsageDescription</key><string>GFind shows your downloads and where they came from. Nothing is uploaded.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key><string>The notch shows your next seven days of events.</string>
+    <key>NSRemindersFullAccessUsageDescription</key><string>The notch shows your reminders and lets you tick them off.</string>
 </dict>
 </plist>
 PLIST

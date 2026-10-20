@@ -18,6 +18,34 @@ Everything runs on your Mac. There's no account, no cloud and nothing is uploade
 - Quick Look (Space), grid and list views (⌘1 / ⌘2), card size (⌘+ / ⌘−), an Inspector (⌘I) showing dimensions, duration, camera and source, a built-in music player, pinned folders, right-click actions, and drag and drop.
 - Optional automatic clean-up rules (off by default): send old installers to the Trash, and file Desktop screenshots into a folder per month.
 
+## The notch
+
+GFind also turns the MacBook notch into a panel of small tools. Hover the notch to open it (or press ⌥⌘N). On a Mac or display without a notch, GFind draws one at the top of the screen.
+
+When closed, the notch can show the clock, today's revenue, your scratchpad or a scrolling message. Running timers and new sales always appear there. Each tool can be switched off in **Settings › Notch**, and there are three themes: Minimal, Playful and Neon.
+
+| Tool | What it does |
+| --- | --- |
+| Home | Clock, your next event, the song playing in GFind, quick launcher |
+| Revenue | Today's Stripe takings from a restricted read-only key (stored in the keychain), with a banner for every sale |
+| Scratchpad / Notes | One always-there text box that can be pinned to the notch, plus a notes list with an editor |
+| Shelf | Drag files onto the notch to park them, then drag them out into any app |
+| Calendar | Seven-day agenda, reminders you can tick off, and adding a reminder |
+| Timers | Pomodoro that remembers your cycles, 5/10/25-minute countdowns, a stopwatch with laps, a hydration nudge |
+| Stats | CPU, memory and disk rings, network speed, battery level, health and cycle count |
+| Screen Time | Which app was in front while you were active, today and over seven days (recorded on this Mac) |
+| Weather | Current conditions, the next hours and seven days, from Open-Meteo (no key needed) |
+| Clipboard | Searchable history of text, links, images and files, with the source app. Skips copies that password managers mark as private |
+| Files | Convert or shrink an image to JPEG, PNG, HEIC or PDF, with quality and max-size controls |
+| Links | Search Google, DuckDuckGo, Perplexity, YouTube or GitHub, plus your saved sites |
+| Emoji | Searchable, categorised picker. A click copies the emoji |
+| Sounds | Eight layered ambient sounds (rain, waves, wind, fire, noises, hum), generated on the device, with a fade-out timer |
+| Message | Your text across the notch in a dot-matrix style: scroll, bounce, wave, sparkle, pulse or rainbow, plus a flash |
+| Claude | Claude Code tokens, messages, tool calls and sessions today, your streak, a heatmap and usage per project, read from `~/.claude/projects` |
+| Units | Length, mass, temperature, volume, speed, data, time and area conversions |
+
+Not included: web-analytics integrations (DataFast, Google Analytics), and payment providers other than Stripe.
+
 **Safety**: GFind never deletes anything outright. Every removal goes to the Trash. Files stored only in iCloud are skipped, so nothing gets downloaded without you asking.
 
 ## Build
@@ -45,6 +73,10 @@ On first launch macOS will ask for access to Desktop, Documents and Downloads. G
 | `QuickSearch.swift` | Global search panel and menu bar window |
 | `MainView.swift`, `ToolViews.swift`, `Components.swift` | The UI |
 | `AppState.swift` | Shared UI state, thumbnails, music player, global hotkey |
+| `Notch/Notch.swift` | The notch window, hover behaviour, collapsed "live activity", themes |
+| `Notch/Stores.swift` | Shelf, clipboard, notes, timers, message, screen time, keychain, Stripe |
+| `Notch/Services.swift` | System stats, sound synthesis, weather, calendar, Claude usage, emoji, image conversion |
+| `Notch/Tools.swift` | The tool views |
 
 ## Not yet included
 
