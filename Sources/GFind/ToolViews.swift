@@ -431,6 +431,7 @@ struct SettingsView: View {
 }
 
 struct GeneralSettings: View {
+    @ObservedObject private var updater = Updater.shared
     @EnvironmentObject var app: AppState
     @EnvironmentObject var library: Library
     @EnvironmentObject var text: TextIndex
@@ -442,6 +443,13 @@ struct GeneralSettings: View {
 
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Open GFind when I log in", isOn: Binding(get: { LaunchAtLogin.isEnabled }, set: { LaunchAtLogin.set($0) }))
+                Toggle("Check for updates automatically", isOn: $updater.autoCheck)
+                LabeledContent("Version", value: "\(AppInfo.version) (\(AppInfo.build))")
+                Button(updater.checking ? "Checking…" : "Check for Updates Now") { Task { await updater.check(userInitiated: true) } }
+                    .disabled(updater.checking)
+            }
             Section("Appearance") {
                 Picker("Look", selection: $app.look) { ForEach(Look.allCases) { Text($0.title).tag($0) } }
                     .pickerStyle(.segmented)
@@ -464,6 +472,10 @@ struct GeneralSettings: View {
             Section("Library") {
                 LabeledContent("Folders", value: "Desktop, Documents, Downloads, Pictures, Movies, Music, Applications")
                 LabeledContent("Files", value: library.items.count.formatted())
+                if let d = library.lastScanDuration {
+                    LabeledContent("Last scan", value: "\(library.lastScan.map(Format.relative) ?? "") · \(String(format: "%.1f", d)) s")
+                }
+                Text("GFind watches these folders and updates by itself when files change.").font(.caption).foregroundStyle(.secondary)
                 Button("Rescan Now") { library.refresh() }.disabled(library.isScanning)
             }
         }
@@ -482,6 +494,7 @@ struct NotchSettings: View {
     @ObservedObject private var revenue = RevenueStore.shared
     @State private var stripeKey = ""
     @State private var toolsVersion = 0
+    @AppStorage("clipboardPaused") private var clipboardPaused = false
 
     var body: some View {
         Form {
@@ -516,6 +529,12 @@ struct NotchSettings: View {
                         Label(t.title, systemImage: t.symbol)
                     }
                 }
+            }
+            Section("Clipboard privacy") {
+                Toggle("Pause clipboard history", isOn: $clipboardPaused)
+                Text("Never saved: copies from password managers (1Password, Bitwarden, Passwords, Keychain Access and others), and anything an app marks as private.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Clear Clipboard History") { ClipboardStore.shared.clear() }
             }
             Section("Revenue") {
                 if revenue.hasKey {

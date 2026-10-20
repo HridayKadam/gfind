@@ -48,18 +48,56 @@ Not included: web-analytics integrations (DataFast, Google Analytics), and payme
 
 **Safety**: GFind never deletes anything outright. Every removal goes to the Trash. Files stored only in iCloud are skipped, so nothing gets downloaded without you asking.
 
-## Build
+## Install and run
 
-Requires macOS 14+ and Xcode or the Swift 5.9+ command-line tools.
+**Build and install on your own Mac** (needs macOS 14+ and Xcode):
 
 ```bash
-./build.sh            # builds dist/GFind.app and dist/GFind.dmg
-./build.sh install    # also installs to /Applications and launches it
+git clone https://github.com/HridayKadam/gfind.git
+cd gfind
+./build.sh install
 ```
 
-For development, `swift build && swift run` works too. Run as a bundled app for folder-permission prompts and the icon.
+This builds a universal app (Apple silicon and Intel), copies it to `/Applications/GFind.app` and opens it. After that, open GFind like any other app: from Launchpad, Spotlight (⌘Space, then type "GFind"), or the Applications folder.
 
-On first launch macOS will ask for access to Desktop, Documents and Downloads. GFind needs this to show and search those folders.
+On first launch:
+
+1. A welcome screen explains what GFind does. Click **Get Started**.
+2. macOS asks for access to Desktop, Documents and Downloads. Click **Allow** for each so GFind can show those files.
+3. GFind scans once, saves the index, and then watches the folders, so later launches are instant and it stays up to date.
+
+Optional: turn on **Open GFind when I log in** in Settings (⌘,).
+
+**From a DMG**: `./build.sh` also writes `dist/GFind.dmg`. Open it and drag GFind to Applications. If the DMG isn't signed with a Developer ID (see below), other Macs will block it the first time. Right-click GFind in Applications, choose **Open**, then **Open** again.
+
+**Shortcuts**: ⇧⌘Space opens Quick Search from any app. Hover the notch (or press ⌥⌘N) for the notch tools. ⌘F searches in the main window.
+
+## Develop
+
+```bash
+swift build            # debug build
+swift test             # unit tests (parser, sources, duplicates, Clean Up, image conversion, updates)
+./build.sh             # release .app and .dmg in dist/
+```
+
+If `swift test` complains about XCTest, point it at Xcode: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`. `build.sh` does this automatically.
+
+Logs go to the unified log. Watch them with `log stream --predicate 'subsystem == "com.hriday.gfind"'`.
+
+GFind keeps its data in `~/Library/Application Support/GFind`: the file index, text found in images, clipboard history, notes and screen time. Delete that folder to reset everything.
+
+## Releasing
+
+1. Bump the number in `VERSION` (for example `1.0.1`) and commit.
+2. Tag and push: `git tag v1.0.1 && git push origin v1.0.1`.
+3. The **Release** workflow runs the tests, builds the DMG and publishes a GitHub Release. Installed copies of GFind check that page once a day and offer the update (Help › Check for Updates…).
+
+**Signing and notarisation**, so the app opens on other Macs without warnings, need an Apple Developer account ($99/year) and a "Developer ID Application" certificate:
+
+- Locally: `GFIND_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" GFIND_NOTARY_PROFILE=gfind-notary ./build.sh`. Create the notary profile once with `xcrun notarytool store-credentials gfind-notary`.
+- In CI: add the repository secrets listed at the top of `.github/workflows/release.yml`. Signing and notarisation switch on automatically.
+
+Without these, builds are ad-hoc signed. That's fine on the Mac that built them.
 
 ## Layout
 
@@ -73,6 +111,7 @@ On first launch macOS will ask for access to Desktop, Documents and Downloads. G
 | `QuickSearch.swift` | Global search panel and menu bar window |
 | `MainView.swift`, `ToolViews.swift`, `Components.swift` | The UI |
 | `AppState.swift` | Shared UI state, thumbnails, music player, global hotkey |
+| `Production.swift` | Welcome screen, launch at login, update checker, clipboard privacy |
 | `Notch/Notch.swift` | The notch window, hover behaviour, collapsed "live activity", themes |
 | `Notch/Stores.swift` | Shelf, clipboard, notes, timers, message, screen time, keychain, Stripe |
 | `Notch/Services.swift` | System stats, sound synthesis, weather, calendar, Claude usage, emoji, image conversion |
@@ -81,4 +120,4 @@ On first launch macOS will ask for access to Desktop, Documents and Downloads. G
 ## Not yet included
 
 - Shortcuts / Siri actions. App Intents need an Xcode build to register their metadata.
-- Automatic updates (Sparkle) and signing / notarisation with a Developer ID.
+- In-place automatic updates (Sparkle). Right now GFind tells you about a new release and opens its download.

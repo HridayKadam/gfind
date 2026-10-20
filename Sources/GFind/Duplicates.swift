@@ -67,7 +67,26 @@ enum DuplicateFinder {
         return groups.sorted { $0.reclaimable > $1.reclaimable }
     }
 
+    private static let cacheLock = NSLock()
+    private static var hashCache: [String: String] = [:]
+    private static var printCache: [String: VNFeaturePrintObservation] = [:]
+
+    private static func key(_ url: URL, _ extra: String) -> String {
+        let v = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        return "\(url.path)|\(v?.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(v?.fileSize ?? 0)|\(extra)"
+    }
+
+    /// Hashes are cached by path, size and modification date, so rescans only read changed files.
     static func hash(_ url: URL, limit: Int?) -> String? {
+        let k = key(url, "\(limit ?? -1)")
+        cacheLock.lock(); let hit = hashCache[k]; cacheLock.unlock()
+        if let hit { return hit }
+        let h = computeHash(url, limit: limit)
+        if let h { cacheLock.lock(); hashCache[k] = h; cacheLock.unlock() }
+        return h
+    }
+
+    private static func computeHash(_ url: URL, limit: Int?) -> String? {
         guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? h.close() }
         var sha = SHA256()
@@ -83,6 +102,15 @@ enum DuplicateFinder {
     }
 
     static func featurePrint(_ url: URL) -> VNFeaturePrintObservation? {
+        let k = key(url, "fp")
+        cacheLock.lock(); let hit = printCache[k]; cacheLock.unlock()
+        if let hit { return hit }
+        let p = computePrint(url)
+        if let p { cacheLock.lock(); printCache[k] = p; cacheLock.unlock() }
+        return p
+    }
+
+    private static func computePrint(_ url: URL) -> VNFeaturePrintObservation? {
         guard let cg = TextIndex.cgImage(url, maxPixels: 512) else { return nil }
         let request = VNGenerateImageFeaturePrintRequest()
         try? VNImageRequestHandler(cgImage: cg).perform([request])

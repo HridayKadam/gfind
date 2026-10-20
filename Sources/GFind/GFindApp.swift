@@ -15,11 +15,13 @@ struct GFindApp: App {
                 .environmentObject(app).environmentObject(library).environmentObject(text)
         }
         .defaultSize(width: 1180, height: 760)
+        .windowResizability(.contentMinSize)
         .commands { GFindCommands(app: app, library: library) }
 
         Settings {
             SettingsView().environmentObject(app).environmentObject(library).environmentObject(text)
         }
+        .windowResizability(.contentSize)
 
         MenuBarExtra("GFind", systemImage: "square.grid.2x2.fill", isInserted: $showMenuBar) {
             MenuBarView().environmentObject(app).environmentObject(library)
@@ -34,8 +36,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             HotKey.shared.action = { QuickSearch.shared.toggle() }
             let saved = QuickSearchShortcut(rawValue: UserDefaults.standard.string(forKey: "quickSearchShortcut") ?? "")
             HotKey.shared.register(saved ?? .shiftCmdSpace)
-            Library.shared.refresh()
+            // First run: wait for the welcome screen, so the folder-access prompts make sense.
+            if UserDefaults.standard.bool(forKey: "hasOnboarded") { Library.shared.start() }
             Notch.shared.start()
+            Updater.shared.checkInBackground()
         }
     }
 
@@ -46,12 +50,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        MainActor.assumeIsolated {
-            let lib = Library.shared
-            if let last = lib.lastScan, Date.now.timeIntervalSince(last) > 120 { lib.refresh() }
-        }
-    }
 }
 
 struct GFindCommands: Commands {
@@ -61,6 +59,22 @@ struct GFindCommands: Commands {
     var selectedItems: [FileItem] { app.selection.compactMap { library.item(at: $0) ?? Scanner.makeItem($0, nil, includeUncategorized: true) } }
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About GFind") {
+                NSApp.orderFrontStandardAboutPanel(options: [
+                    .credits: NSAttributedString(string: "Your files, big and easy to find.\nEverything stays on your Mac.",
+                                                 attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor]),
+                ])
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            Button("Check for Updates…") { Task { await Updater.shared.check(userInitiated: true) } }
+        }
+        CommandGroup(replacing: .help) {
+            Button("GFind Help") { NSWorkspace.shared.open(AppInfo.repo.appendingPathComponent("blob/main/README.md")) }
+            Button("Show Welcome Screen") { UserDefaults.standard.set(false, forKey: "hasOnboarded"); app.showMain() }
+            Divider()
+            Button("Report an Issue…") { NSWorkspace.shared.open(AppInfo.issues) }
+        }
         CommandGroup(after: .newItem) {
             Button("Quick Search") { QuickSearch.shared.show() }
             Button("Rescan Library") { library.refresh() }.keyboardShortcut("r")

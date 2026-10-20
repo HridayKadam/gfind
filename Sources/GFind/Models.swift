@@ -52,7 +52,7 @@ enum Category: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-struct FileItem: Identifiable, Hashable {
+struct FileItem: Identifiable, Hashable, Codable {
     let url: URL
     var id: URL { url }
     let name: String
@@ -70,10 +70,12 @@ struct FileItem: Identifiable, Hashable {
     let isCloudOnly: Bool
     let isFolder: Bool
     let bundleID: String?
+    /// Lower-cased, hyphen-free name, precomputed so search doesn't redo it per keystroke.
+    var searchName = ""
 
     /// The date people think of as "when I got this file".
     var date: Date { added ?? created }
-    var isInDownloads: Bool { url.path.hasPrefix(Paths.downloads.path + "/") }
+    var isInDownloads: Bool { url.path.hasPrefix(Paths.downloadsPrefix) }
     var isInstaller: Bool { ext == "dmg" || ext == "pkg" }
 
     static func == (a: FileItem, b: FileItem) -> Bool { a.url == b.url && a.size == b.size && a.modified == b.modified }
@@ -85,6 +87,7 @@ enum Paths {
     static let desktop = home.appendingPathComponent("Desktop")
     static let documents = home.appendingPathComponent("Documents")
     static let downloads = home.appendingPathComponent("Downloads")
+    static let downloadsPrefix = downloads.path + "/"
     static let pictures = home.appendingPathComponent("Pictures")
     static let movies = home.appendingPathComponent("Movies")
     static let music = home.appendingPathComponent("Music")

@@ -147,8 +147,8 @@ final class Notch: NSObject, ObservableObject {
         poll = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
             MainActor.assumeIsolated { Notch.shared.tick() }
         }
-        // Developer aid: `GFind -openNotch <tool>` opens the panel on launch, pinned.
-        if let i = CommandLine.arguments.firstIndex(of: "-openNotch") {
+        // Developer aid: `GFIND_DEV=1 GFind -openNotch <tool>` opens the panel on launch, pinned.
+        if ProcessInfo.processInfo.environment["GFIND_DEV"] == "1", let i = CommandLine.arguments.firstIndex(of: "-openNotch") {
             if i + 1 < CommandLine.arguments.count, let t = NotchTool(rawValue: CommandLine.arguments[i + 1]) { tool = t }
             pinned = true
             open()

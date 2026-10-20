@@ -1,0 +1,21 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test
+        run: swift test
+      - name: Build app
+        run: ./build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GFind.dmg
+          path: dist/GFind.dmg

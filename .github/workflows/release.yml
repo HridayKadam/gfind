@@ -1,0 +1,58 @@
+name: Release
+# Push a tag like v1.0.1 to build, (optionally) sign and notarise, and publish a GitHub Release.
+# Signing turns on when these repository secrets exist:
+#   MACOS_CERT_P12      base64 of your "Developer ID Application" certificate exported as .p12
+#   MACOS_CERT_PASSWORD password for that .p12
+#   MACOS_SIGN_IDENTITY e.g. "Developer ID Application: Your Name (TEAMID)"
+#   NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD (an app-specific password)
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+      HAS_NOTARY: ${{ secrets.NOTARY_APPLE_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check VERSION matches tag
+        run: test "v$(cat VERSION)" = "${GITHUB_REF_NAME}"
+      - name: Test
+        run: swift test
+      - name: Import signing certificate
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p ci build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          rm cert.p12
+      - name: Store notary credentials
+        if: env.HAS_NOTARY == 'true'
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+        run: xcrun notarytool store-credentials gfind-notary --apple-id "$NOTARY_APPLE_ID" --team-id "${{ secrets.NOTARY_TEAM_ID }}" --password "${{ secrets.NOTARY_PASSWORD }}"
+      - name: Build
+        env:
+          GFIND_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          GFIND_NOTARY_PROFILE: ${{ env.HAS_NOTARY == 'true' && 'gfind-notary' || '' }}
+        run: |
+          [ -z "$GFIND_SIGN_IDENTITY" ] && unset GFIND_SIGN_IDENTITY
+          [ -z "$GFIND_NOTARY_PROFILE" ] && unset GFIND_NOTARY_PROFILE
+          ./build.sh
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/GFind.dmg --title "GFind $GITHUB_REF_NAME" --generate-notes

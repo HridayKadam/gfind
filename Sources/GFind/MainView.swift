@@ -7,6 +7,8 @@ struct MainView: View {
     @EnvironmentObject var text: TextIndex
     @Environment(\.openWindow) private var openWindow
     @FocusState private var searchFocused: Bool
+    @AppStorage("hasOnboarded") private var hasOnboarded = false
+    @State private var showWelcome = false
 
     var body: some View {
         NavigationSplitView {
@@ -24,7 +26,11 @@ struct MainView: View {
         .toolbar { toolbar }
         .overlay(alignment: .bottom) { toast }
         .onChange(of: app.focusSearch) { searchFocused = true }
-        .onAppear { app.openMainWindow = { openWindow(id: "main") } }
+        .onAppear {
+            app.openMainWindow = { openWindow(id: "main") }
+            if !hasOnboarded { showWelcome = true }
+        }
+        .sheet(isPresented: $showWelcome) { WelcomeView() }
         .frame(minWidth: 760, minHeight: 480)
     }
 

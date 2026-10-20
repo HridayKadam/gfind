@@ -88,7 +88,9 @@ final class ClipboardStore: ObservableObject {
         let types = pb.types ?? []
         // Respect password managers and apps that mark copies as private.
         if types.contains(where: { $0.rawValue.contains("Concealed") || $0.rawValue.contains("Transient") }) { return }
-        let source = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+        let front = NSWorkspace.shared.frontmostApplication
+        guard ClipboardPrivacy.shouldRecord(from: front) else { return }
+        let source = front?.localizedName ?? "Unknown"
 
         var entry: ClipEntry?
         if let files = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !files.isEmpty {

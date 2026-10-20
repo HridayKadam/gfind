@@ -70,7 +70,7 @@ struct Query: Equatable {
         if let maxSize, item.size > maxSize { return false }
         if let source, item.source?.caseInsensitiveCompare(source) != .orderedSame { return false }
         if !terms.isEmpty {
-            let name = TextIndex.normalize(item.name)
+            let name = item.searchName
             let body = text.normalizedText(for: item) ?? ""
             let froms = item.whereFroms.joined(separator: " ").lowercased()
             for t in terms where !(name.contains(t) || body.contains(t) || froms.contains(t)) { return false }

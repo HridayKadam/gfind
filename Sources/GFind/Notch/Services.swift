@@ -155,66 +155,76 @@ final class SoundEngine: ObservableObject {
     private let lock = NSLock()
     private var fadeTimer: Timer?
 
+    // Synth state. Only touched on the audio thread.
+    private var b0: Float = 0, b1: Float = 0, b2: Float = 0, brown: Float = 0, wind: Float = 0
+    private var crackle: Float = 0, drop: Float = 0
+    private var hum: Double = 0, t: Double = 0
+
     private init() {
         let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
-        var b0: Float = 0, b1: Float = 0, b2: Float = 0, brown: Float = 0, wind: Float = 0, hum: Double = 0
-        var t: Double = 0, crackle: Float = 0, drop: Float = 0
         let node = AVAudioSourceNode(format: format) { [unowned self] _, _, frames, abl -> OSStatus in
-            let buf = UnsafeMutableAudioBufferListPointer(abl)[0]
-            let out = buf.mData!.assumingMemoryBound(to: Float.self)
-            self.lock.lock()
-            var g = self.gains
-            let tg = self.targets
-            self.lock.unlock()
-            for i in 0..<Int(frames) {
-                let w = Float.random(in: -1...1)
-                b0 = 0.99765 * b0 + w * 0.0990460; b1 = 0.96300 * b1 + w * 0.2965164; b2 = 0.57000 * b2 + w * 1.0526913
-                let pink = (b0 + b1 + b2 + w * 0.1848) * 0.12
-                brown = (brown + 0.02 * w) / 1.02
-                let br = brown * 3.2
-                t += 1 / 44_100
-                var s: Float = 0
-                for (a, cur) in g {
-                    let target = tg[a] ?? 0
-                    let next = cur + (target - cur) * 0.00008
-                    g[a] = next
-                    guard next > 0.0005 else { continue }
-                    var v: Float
-                    switch a {
-                    case .white: v = w * 0.25
-                    case .pink: v = pink
-                    case .brown: v = br
-                    case .rain:
-                        if Float.random(in: 0...1) < 0.0009 { drop = Float.random(in: 0.2...0.6) }
-                        drop *= 0.992
-                        v = pink * 0.7 + w * drop * 0.5
-                    case .waves:
-                        let swell = Float(0.55 + 0.45 * sin(2 * .pi * t / 9))
-                        v = br * swell * 1.1
-                    case .wind:
-                        wind = wind * 0.995 + w * 0.005
-                        let gust = Float(0.5 + 0.5 * sin(2 * .pi * t / 13) * sin(2 * .pi * t / 5.3))
-                        v = wind * 9 * gust
-                    case .fire:
-                        if Float.random(in: 0...1) < 0.0015 { crackle = Float.random(in: 0.3...1) }
-                        crackle *= 0.96
-                        v = br * 0.6 + w * crackle * 0.6
-                    case .hum:
-                        hum += 2 * .pi * 55 / 44_100
-                        v = Float(sin(hum) * 0.18 + sin(hum * 1.5) * 0.06) + pink * 0.15
-                    }
-                    s += v * next
-                }
-                out[i] = max(-1, min(1, s))
-            }
-            self.lock.lock()
-            for (a, v) in g where self.gains[a] != nil { self.gains[a] = v }
-            self.lock.unlock()
-            return noErr
+            self.render(frames: Int(frames), into: abl)
         }
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: format)
         engine.mainMixerNode.outputVolume = volume
+    }
+
+    private func render(frames: Int, into abl: UnsafeMutablePointer<AudioBufferList>) -> OSStatus {
+        let out = UnsafeMutableAudioBufferListPointer(abl)[0].mData!.assumingMemoryBound(to: Float.self)
+        lock.lock()
+        var g = gains
+        let tg = targets
+        lock.unlock()
+        for i in 0..<frames {
+            let w = Float.random(in: -1...1)
+            b0 = 0.99765 * b0 + w * 0.0990460
+            b1 = 0.96300 * b1 + w * 0.2965164
+            b2 = 0.57000 * b2 + w * 1.0526913
+            let pink: Float = (b0 + b1 + b2 + w * 0.1848) * 0.12
+            brown = (brown + 0.02 * w) / 1.02
+            t += 1.0 / 44_100.0
+            var s: Float = 0
+            for (a, cur) in g {
+                let next: Float = cur + ((tg[a] ?? 0) - cur) * 0.00008
+                g[a] = next
+                if next > 0.0005 { s += sample(a, white: w, pink: pink) * next }
+            }
+            out[i] = max(-1, min(1, s))
+        }
+        lock.lock()
+        for (a, v) in g where gains[a] != nil { gains[a] = v }
+        lock.unlock()
+        return noErr
+    }
+
+    private func sample(_ a: Ambience, white w: Float, pink: Float) -> Float {
+        let br: Float = brown * 3.2
+        let tau: Double = 2 * Double.pi
+        switch a {
+        case .white: return w * 0.25
+        case .pink: return pink
+        case .brown: return br
+        case .rain:
+            if Float.random(in: 0...1) < 0.0009 { drop = Float.random(in: 0.2...0.6) }
+            drop *= 0.992
+            return pink * 0.7 + w * drop * 0.5
+        case .waves:
+            let swell = Float(0.55 + 0.45 * sin(tau * t / 9))
+            return br * swell * 1.1
+        case .wind:
+            wind = wind * 0.995 + w * 0.005
+            let gust = Float(0.5 + 0.5 * sin(tau * t / 13) * sin(tau * t / 5.3))
+            return wind * 9 * gust
+        case .fire:
+            if Float.random(in: 0...1) < 0.0015 { crackle = Float.random(in: 0.3...1) }
+            crackle *= 0.96
+            return br * 0.6 + w * crackle * 0.6
+        case .hum:
+            hum += tau * 55 / 44_100
+            let tone = Float(sin(hum) * 0.18 + sin(hum * 1.5) * 0.06)
+            return tone + pink * 0.15
+        }
     }
 
     func toggle(_ a: Ambience) {

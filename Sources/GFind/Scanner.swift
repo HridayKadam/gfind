@@ -64,7 +64,7 @@ enum Scanner {
         var lastOpened = v.contentAccessDate
         if isApp || url.path.hasPrefix(Paths.downloads.path) { lastOpened = spotlightLastUsed(url) }
 
-        return FileItem(
+        var item = FileItem(
             url: url, name: name, ext: ext, size: Int64(v.fileSize ?? 0),
             created: v.creationDate ?? .distantPast, modified: v.contentModificationDate ?? .distantPast,
             added: v.addedToDirectoryDate, lastOpened: lastOpened, category: category,
@@ -72,6 +72,8 @@ enum Scanner {
             isScreenshot: screenshot && category == .images || name.hasPrefix("Screen Recording"),
             whereFroms: froms, source: DownloadSource.name(for: froms), isCloudOnly: cloudOnly,
             isFolder: isFolder, bundleID: isApp ? Bundle(url: url)?.bundleIdentifier : nil)
+        item.searchName = TextIndex.normalize(name)
+        return item
     }
 
     /// Lists one folder, including subfolders and files GFind doesn't categorise.
